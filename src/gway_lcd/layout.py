@@ -20,7 +20,10 @@ def wrap_text(text: str, width: int) -> tuple[str, str]:
     if len(text) <= width:
         return text, ""
 
-    boundary = text.rfind(" ", 0, width + 1)
+    boundary = max(
+        (index for index, char in enumerate(text[: width + 1]) if char.isspace()),
+        default=-1,
+    )
     if boundary <= 0:
         return split_text(text, width)
     return text[:boundary].rstrip(), text[boundary + 1 :].lstrip()
