@@ -84,9 +84,7 @@ def create_backend(
 
     if address is not None:
         if address == 0x3E:
-            return AiP31068LCD(
-                address=address, bus=bus, columns=columns, rows=rows
-            )
+            return AiP31068LCD(address=address, bus=bus, columns=columns, rows=rows)
         return I2CLCD(address=address, bus=bus, columns=columns, rows=rows)
 
     if 0x27 in found or 0x3F in found:
