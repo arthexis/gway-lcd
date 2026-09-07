@@ -53,7 +53,7 @@ def render_rows(
     """Render two rows once, or continuously as synchronized marquees."""
     if speed <= 0:
         raise ValueError("speed must be greater than zero")
-    if not scroll:
+    if not scroll or (len(hi) <= lcd.columns and len(lo) <= lcd.columns):
         lcd.write(hi, lo)
         return
 
