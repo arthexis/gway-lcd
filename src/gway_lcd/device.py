@@ -9,6 +9,7 @@ from typing import Protocol
 class LCDBackend(Protocol):
     """Backend contract used by :class:`LCD`."""
 
+    driver: str
     address: int
     bus: int
     columns: int
@@ -53,6 +54,7 @@ class LCD:
 
     def status(self) -> dict[str, object]:
         return {
+            "driver": self.backend.driver,
             "address": f"0x{self.backend.address:02x}",
             "bus": self.backend.bus,
             "columns": self.columns,
