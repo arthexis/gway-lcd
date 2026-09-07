@@ -7,7 +7,7 @@ import socket
 import time
 import tomllib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sigils import Sigil
@@ -39,7 +39,7 @@ def _uptime() -> str:
 
 
 def _local_now() -> datetime:
-    return datetime.now(timezone.utc).astimezone()
+    return datetime.now(UTC).astimezone()
 
 
 def _runtime_context() -> dict[str, object]:
