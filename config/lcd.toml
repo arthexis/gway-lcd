@@ -1,0 +1,14 @@
+[standby]
+interval = 5
+order = ["status", "stats", "clock"]
+
+[standby.screens.status]
+hi = "[hostname|Gway]"
+lo = "Ready"
+
+# Additional named standby frames can be added and inserted into `order`.
+# TOML strings use the same lazy Sigil syntax as Gway CLI values.
+#
+# [standby.screens.network]
+# hi = "ETH [eth0_ip|offline]"
+# lo = "CSMS [csms_status|idle]"
