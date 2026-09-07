@@ -12,4 +12,4 @@ jobs:
   python:
     uses: arthexis/ci-base/.github/workflows/consumer-ci.yml@v1
     with:
-      install-command: python -m pip install -e ".[hardware,dev]"
+      install-command: python -m pip install -e ".[dev]"
