@@ -11,13 +11,19 @@ The package keeps hardware access behind a small Python API and exposes composab
 
 ## Install
 
-For development and Raspberry Pi hardware access:
+For normal Gway installation:
 
 ```console
-python -m pip install -e ".[hardware,dev]"
+sudo gway install lcd
 ```
 
-The hardware extra installs `smbus2`. Importing `gway_lcd` itself does not require Raspberry Pi hardware or I2C support, so the core API can be tested on normal CI runners.
+`smbus2` is a normal package dependency, so no extra install flag is required for Raspberry Pi I2C access.
+
+For development:
+
+```console
+python -m pip install -e ".[dev]"
+```
 
 ## Gway project
 
