@@ -2,6 +2,7 @@ from gway_lcd import LCD
 
 
 class FakeBackend:
+    driver = "pcf8574"
     address = 0x27
     bus = 1
     columns = 16
@@ -58,6 +59,7 @@ def test_status_is_serializable_configuration():
     lcd = LCD(FakeBackend())
 
     assert lcd.status() == {
+        "driver": "pcf8574",
         "address": "0x27",
         "bus": 1,
         "columns": 16,
