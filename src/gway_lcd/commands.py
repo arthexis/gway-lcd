@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from .device import LCD
 from .discovery import create_backend, scan
-from .standby import load_config, run as run_standby, screens_from_config
+from .standby import load_config, screens_from_config
+from .standby import run as run_standby
 
 
 def _address(value: str | int | None) -> int | None:
