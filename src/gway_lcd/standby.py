@@ -56,7 +56,9 @@ def _runtime_context() -> dict[str, object]:
 
 def resolve_text(value: object, context: dict[str, object] | None = None) -> str:
     """Resolve Gway-style sigils in one configured string."""
-    return Sigil("" if value is None else str(value)).solve(context or _runtime_context())
+    return Sigil("" if value is None else str(value)).solve(
+        context or _runtime_context()
+    )
 
 
 def builtin_screen(name: str) -> Screen:
