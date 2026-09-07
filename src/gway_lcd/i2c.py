@@ -8,6 +8,7 @@ import time
 class I2CLCD:
     """Minimal PCF8574-style HD44780 backend."""
 
+    driver = "pcf8574"
     ENABLE = 0x04
     BACKLIGHT = 0x08
     DATA = 0x01
