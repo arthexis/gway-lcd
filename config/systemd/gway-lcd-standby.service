@@ -1,0 +1,12 @@
+[Unit]
+Description=Gway LCD standby rotation
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/opt/gway/venv/bin/gway lcd standby --config %h/.config/gway/lcd.toml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
