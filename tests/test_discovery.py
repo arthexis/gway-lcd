@@ -1,4 +1,4 @@
-import gway_lcd.discovery as discovery
+from gway_lcd import discovery
 
 
 class FakePCF:
