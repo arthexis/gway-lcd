@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .device import LCD
 from .discovery import create_backend, scan
+from .standby import load_config, run as run_standby, screens_from_config
 
 
 def _address(value: str | int | None) -> int | None:
@@ -66,6 +67,37 @@ def write(
     lcd = _lcd(address, bus, columns, rows, driver)
     lcd.write(hi, lo)
     return {**lcd.status(), "hi": hi, "lo": lo}
+
+
+def standby(
+    config: str | None = None,
+    hi: str = "",
+    lo: str = "",
+    high: str | None = None,
+    low: str | None = None,
+    order: str | None = None,
+    interval: float | None = None,
+    once: bool = False,
+    address: str | None = None,
+    bus: int = 1,
+    columns: int = 16,
+    rows: int = 2,
+    driver: str = "auto",
+) -> dict[str, object]:
+    """Run the configurable standby screen rotation."""
+    hi = _coalesce(hi, high)
+    lo = _coalesce(lo, low)
+    settings = load_config(config)
+    screens, configured_interval = screens_from_config(
+        settings,
+        hi=hi,
+        lo=lo,
+        order=order,
+    )
+    delay = configured_interval if interval is None else interval
+    lcd = _lcd(address, bus, columns, rows, driver)
+    result = run_standby(lcd, screens, interval=delay, once=once)
+    return {**lcd.status(), **result, "interval": delay}
 
 
 def clear(
