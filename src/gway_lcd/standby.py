@@ -7,7 +7,7 @@ import socket
 import time
 import tomllib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sigils import Sigil
@@ -38,14 +38,19 @@ def _uptime() -> str:
     return f"{minutes}m"
 
 
+def _local_now() -> datetime:
+    return datetime.now(timezone.utc).astimezone()
+
+
 def _runtime_context() -> dict[str, object]:
     """Values available to sigils embedded in standby TOML strings."""
+    hostname = socket.gethostname()
     return {
         **os.environ,
-        "hostname": socket.gethostname(),
-        "host": socket.gethostname(),
+        "hostname": hostname,
+        "host": hostname,
         "uptime": _uptime(),
-        "now": datetime.now().isoformat(timespec="seconds"),
+        "now": _local_now().isoformat(timespec="seconds"),
     }
 
 
@@ -56,7 +61,7 @@ def resolve_text(value: object, context: dict[str, object] | None = None) -> str
 
 def builtin_screen(name: str) -> Screen:
     """Return a dynamic standby frame matching the useful legacy screens."""
-    now = datetime.now()
+    now = _local_now()
     if name in {"low", "uptime"}:
         return Screen(
             name="uptime",
@@ -90,7 +95,7 @@ def load_config(path: str | Path | None) -> dict[str, object]:
         data = tomllib.load(handle)
     standby = data.get("standby", {})
     if not isinstance(standby, dict):
-        raise ValueError("[standby] must be a TOML table")
+        raise TypeError("[standby] must be a TOML table")
     return standby
 
 
@@ -112,7 +117,7 @@ def screens_from_config(
     elif isinstance(raw_order, list):
         names = [str(item).strip() for item in raw_order if str(item).strip()]
     else:
-        raise ValueError("standby order must be a list or comma-separated string")
+        raise TypeError("standby order must be a list or comma-separated string")
 
     cli_frame = Screen("status", hi=hi, lo=lo) if hi or lo else None
     screens: list[Screen] = []
@@ -138,7 +143,7 @@ def screens_from_config(
                 screens.append(
                     Screen(
                         name="status",
-                        hi=resolve_text("[hostname|Gway]", context),
+                        hi=resolve_text("[hostname]", context),
                         lo="Ready",
                     )
                 )
