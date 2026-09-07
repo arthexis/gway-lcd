@@ -21,7 +21,7 @@ class AiP31068LCD:
             from smbus2 import SMBus
         except ImportError as exc:
             raise RuntimeError(
-                "I2C support requires the hardware extra: pip install 'gway-lcd[hardware]'"
+                "I2C support requires smbus2; reinstall gway-lcd with 'gway install lcd'"
             ) from exc
 
         self.address = address
