@@ -13,6 +13,7 @@ authors = [
   { name = "Rafael J. Guillén-Osorio" },
 ]
 dependencies = [
+  "gway-sigils>=0.4.3,<0.5",
   "smbus2>=0.5",
 ]
 
