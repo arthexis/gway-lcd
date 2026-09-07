@@ -30,6 +30,10 @@ def _lcd(
     )
 
 
+def _coalesce(primary: str, alias: str | None) -> str:
+    return primary if alias is None else alias
+
+
 def show(
     text: str,
     line: int = 1,
@@ -46,18 +50,22 @@ def show(
 
 
 def write(
-    line1: str = "",
-    line2: str = "",
+    hi: str = "",
+    lo: str = "",
+    high: str | None = None,
+    low: str | None = None,
     address: str | None = None,
     bus: int = 1,
     columns: int = 16,
     rows: int = 2,
     driver: str = "auto",
 ) -> dict[str, object]:
-    """Write the first two display lines."""
+    """Write the high/top and low/bottom display rows."""
+    hi = _coalesce(hi, high)
+    lo = _coalesce(lo, low)
     lcd = _lcd(address, bus, columns, rows, driver)
-    lcd.write(line1, line2)
-    return {**lcd.status(), "line1": line1, "line2": line2}
+    lcd.write(hi, lo)
+    return {**lcd.status(), "hi": hi, "lo": lo}
 
 
 def clear(
