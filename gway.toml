@@ -1,0 +1,7 @@
+[project]
+name = "lcd"
+aliases = ["gway-lcd"]
+
+[adapter]
+type = "python"
+module = "gway_lcd.commands"
