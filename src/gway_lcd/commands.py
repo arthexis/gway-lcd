@@ -5,7 +5,7 @@ from __future__ import annotations
 from .device import LCD
 from .discovery import create_backend, scan
 from .layout import render_rows, split_text, wrap_text
-from .standby import load_config, screens_from_config
+from .standby import DEFAULT_HOLD, load_config, screens_from_config
 from .standby import run as run_standby
 
 
@@ -35,6 +35,31 @@ def _lcd(
 
 def _coalesce(primary: str, alias: str | None) -> str:
     return primary if alias is None else alias
+
+
+def _rows(
+    *,
+    hi: str,
+    lo: str,
+    high: str | None,
+    low: str | None,
+    wrap: str | None,
+    split: str | None,
+    columns: int,
+) -> tuple[str, str]:
+    if wrap is not None and split is not None:
+        raise ValueError("--wrap and --split are mutually exclusive")
+    hi = _coalesce(hi, high)
+    lo = _coalesce(lo, low)
+    if wrap is not None:
+        if hi or lo:
+            raise ValueError("--wrap cannot be combined with hi/lo text")
+        return wrap_text(wrap, columns)
+    if split is not None:
+        if hi or lo:
+            raise ValueError("--split cannot be combined with hi/lo text")
+        return split_text(split, columns)
+    return hi, lo
 
 
 def show(
@@ -68,20 +93,15 @@ def write(
     driver: str = "auto",
 ) -> dict[str, object]:
     """Write two rows, optionally wrapping, splitting, or scrolling text."""
-    if wrap is not None and split is not None:
-        raise ValueError("--wrap and --split are mutually exclusive")
-
-    hi = _coalesce(hi, high)
-    lo = _coalesce(lo, low)
-    if wrap is not None:
-        if hi or lo:
-            raise ValueError("--wrap cannot be combined with hi/lo text")
-        hi, lo = wrap_text(wrap, columns)
-    elif split is not None:
-        if hi or lo:
-            raise ValueError("--split cannot be combined with hi/lo text")
-        hi, lo = split_text(split, columns)
-
+    hi, lo = _rows(
+        hi=hi,
+        lo=lo,
+        high=high,
+        low=low,
+        wrap=wrap,
+        split=split,
+        columns=columns,
+    )
     lcd = _lcd(address, bus, columns, rows, driver)
     render_rows(lcd, hi, lo, scroll=scroll, speed=speed)
     return {
@@ -95,10 +115,16 @@ def write(
 
 def standby(
     config: str | None = None,
+    screen: str | None = None,
     hi: str = "",
     lo: str = "",
     high: str | None = None,
     low: str | None = None,
+    wrap: str | None = None,
+    split: str | None = None,
+    hold: float = DEFAULT_HOLD,
+    rotation: str | None = None,
+    priority: int = 100,
     order: str | None = None,
     interval: float | None = None,
     once: bool = False,
@@ -108,20 +134,45 @@ def standby(
     rows: int = 2,
     driver: str = "auto",
 ) -> dict[str, object]:
-    """Run the configurable standby screen rotation."""
-    hi = _coalesce(hi, high)
-    lo = _coalesce(lo, low)
-    settings = load_config(config)
-    screens, configured_interval = screens_from_config(
-        settings,
+    """Display a named screen or run a configurable screen rotation."""
+    hi, lo = _rows(
         hi=hi,
         lo=lo,
-        order=order,
+        high=high,
+        low=low,
+        wrap=wrap,
+        split=split,
+        columns=columns,
     )
-    delay = configured_interval if interval is None else interval
+    if (hi or lo) and screen is None:
+        screen = "status"
+
+    settings = load_config(config)
+    screens, configured_hold = screens_from_config(
+        settings,
+        screen=screen,
+        hi=hi,
+        lo=lo,
+        rotation=rotation,
+        order=order,
+        hold=hold,
+        priority=priority,
+    )
+    default_hold = configured_hold if interval is None else interval
+    standalone = screen is not None and rotation is None and order is None
     lcd = _lcd(address, bus, columns, rows, driver)
-    result = run_standby(lcd, screens, interval=delay, once=once)
-    return {**lcd.status(), **result, "interval": delay}
+    result = run_standby(
+        lcd,
+        screens,
+        default_hold=default_hold,
+        once=once or standalone,
+    )
+    return {
+        **lcd.status(),
+        **result,
+        "hold": default_hold,
+        "rotation": rotation,
+    }
 
 
 def clear(
@@ -167,10 +218,7 @@ def detect(bus: int = 1) -> dict[str, object]:
     addresses = scan(bus)
     devices: list[dict[str, str]] = []
     for address in sorted(addresses):
-        if address == 0x3E:
-            driver = "aip31068"
-        else:
-            driver = "pcf8574"
+        driver = "aip31068" if address == 0x3E else "pcf8574"
         devices.append({"address": f"0x{address:02x}", "driver": driver})
     return {
         "bus": bus,

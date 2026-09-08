@@ -1,14 +1,20 @@
 [standby]
-interval = 5
-order = ["status", "stats", "clock"]
+hold = 10
 
-[standby.screens.status]
-hi = "[hostname|Gway]"
-lo = "Ready"
-
-# Additional named standby frames can be added and inserted into `order`.
-# TOML strings use the same lazy Sigil syntax as Gway CLI values.
+# The package bundles the default rotation:
+# identity -> network -> errors -> stats
 #
+# Override the rotation here if desired:
+# rotation = ["identity", "network", "errors", "stats", "site"]
+
+# Bundled screens are overridden field-by-field by name.
 # [standby.screens.network]
-# hi = "ETH [eth0_ip|offline]"
-# lo = "CSMS [csms_status|idle]"
+# hold = 15
+# lo = "ETH [network.eth0.ip|:-]"
+
+# User-defined screens join the same namespace.
+# [standby.screens.site]
+# hi = "Garage"
+# lo = "[SITE_MESSAGE|:Ready]"
+# hold = 10
+# priority = 500
