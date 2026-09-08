@@ -64,7 +64,7 @@ def resolve_text(value: object, context: dict[str, object] | None = None) -> str
 
 
 def builtin_screen(name: str) -> Screen:
-    """Return one dynamic built-in screen."""
+    """Return one built-in screen."""
     now = _local_now()
     if name in {"low", "uptime"}:
         return Screen(
@@ -113,6 +113,15 @@ def load_config(path: str | Path | None) -> dict[str, object]:
 
 
 def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
+    has_text = any(key in entry for key in ("hi", "high", "lo", "low"))
+    if not has_text and name in {"status", "stats", "clock"}:
+        base = builtin_screen(name)
+        return replace(
+            base,
+            hold=float(entry.get("hold", base.hold)),
+            priority=int(entry.get("priority", base.priority)),
+        )
+
     context = _runtime_context()
     return Screen(
         name=name,
@@ -197,7 +206,11 @@ def run(
     rendered = 0
     while True:
         for configured in screens:
-            frame = builtin_screen(configured.name) if configured.kind == "dynamic" else configured
+            frame = (
+                builtin_screen(configured.name)
+                if configured.kind == "dynamic"
+                else configured
+            )
             if configured.kind == "dynamic":
                 frame = replace(
                     frame,
