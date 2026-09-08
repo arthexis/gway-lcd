@@ -22,7 +22,7 @@ def test_toml_screen_resolves_sigils(monkeypatch):
         "order": ["site"],
         "screens": {
             "site": {
-                "hi": "[LCD_SITE|unknown]",
+                "hi": "[LCD_SITE]",
                 "lo": "Ready",
             }
         },

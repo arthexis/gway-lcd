@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from .device import LCD
 from .discovery import create_backend, scan
-from .standby import load_config, run as run_standby, screens_from_config
+from .layout import render_rows, split_text, wrap_text
+from .standby import load_config, screens_from_config
+from .standby import run as run_standby
 
 
 def _address(value: str | int | None) -> int | None:
@@ -55,18 +57,40 @@ def write(
     lo: str = "",
     high: str | None = None,
     low: str | None = None,
+    wrap: str | None = None,
+    split: str | None = None,
+    scroll: bool = False,
+    speed: float = 2.0,
     address: str | None = None,
     bus: int = 1,
     columns: int = 16,
     rows: int = 2,
     driver: str = "auto",
 ) -> dict[str, object]:
-    """Write the high/top and low/bottom display rows."""
+    """Write two rows, optionally wrapping, splitting, or scrolling text."""
+    if wrap is not None and split is not None:
+        raise ValueError("--wrap and --split are mutually exclusive")
+
     hi = _coalesce(hi, high)
     lo = _coalesce(lo, low)
+    if wrap is not None:
+        if hi or lo:
+            raise ValueError("--wrap cannot be combined with hi/lo text")
+        hi, lo = wrap_text(wrap, columns)
+    elif split is not None:
+        if hi or lo:
+            raise ValueError("--split cannot be combined with hi/lo text")
+        hi, lo = split_text(split, columns)
+
     lcd = _lcd(address, bus, columns, rows, driver)
-    lcd.write(hi, lo)
-    return {**lcd.status(), "hi": hi, "lo": lo}
+    render_rows(lcd, hi, lo, scroll=scroll, speed=speed)
+    return {
+        **lcd.status(),
+        "hi": hi,
+        "lo": lo,
+        "scroll": scroll,
+        "speed": speed,
+    }
 
 
 def standby(
