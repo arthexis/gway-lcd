@@ -8,18 +8,16 @@ lo = "[arthexis.node-role|:-] [device.uptime]"
 priority = 100
 
 [standby.screens.network]
-# Temporary zero-argument aliases until GWAY-backed Sigils pass callable arguments.
-# Canonical network API: ip(interface), e.g. network.ip:wlan0.
-hi = "[network.wlan0-ip|:-]"
-lo = "[network.eth0-ip|:-]"
+hi = "[network.ip:wlan0|:-]"
+lo = "[network.ip:eth0|:-]"
 priority = 200
 
 [standby.screens.errors]
-hi = "E[device.errors] W[device.warnings] U[device.undervoltage] F[device.failed-units]"
+hi = "E[device.errors] W[device.warnings] U[device.undervoltage:count] F[device.failed-units]"
 lo = "[device.error-source|:-]"
 priority = 300
 
 [standby.screens.stats]
-hi = "M[device.memory-percent]% D[device.disk-free-percent]% C[device.cpu-percent]% [clock]"
+hi = "M[device.memory:percent]% D[device.disk:free-percent]% C[device.cpu:percent]% [clock]"
 lo = "[arthexis.version|:-] [arthexis.status||:FAIL]"
 priority = 400
