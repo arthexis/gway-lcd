@@ -13,7 +13,7 @@ authors = [
   { name = "Rafael J. Guillén-Osorio" },
 ]
 dependencies = [
-  "gway-sigils>=0.4.3,<0.5",
+  "gway-sigils>=0.4.5,<0.5",
   "smbus2>=0.5",
 ]
 
@@ -25,6 +25,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+gway_lcd = ["standby.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
