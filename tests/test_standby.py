@@ -1,3 +1,5 @@
+import pytest
+
 from gway_lcd import standby
 
 
@@ -120,6 +122,22 @@ def test_user_rotation_can_replace_bundled_rotation():
     assert [screen.name for screen in screens] == ["errors", "identity"]
 
 
+def test_screen_accepts_zero_or_more_project_prerequisites():
+    config = {
+        "screens": {
+            "always": {"hi": "Always"},
+            "net": {"hi": "Net", "requires": "network"},
+            "node": {"hi": "Node", "requires": ["device", "arthexis"]},
+        }
+    }
+
+    screens, _hold = standby.screens_from_config(config, rotation="always,net,node")
+
+    assert screens[-3].requires == ()
+    assert screens[-2].requires == ("network",)
+    assert screens[-1].requires == ("device", "arthexis")
+
+
 def test_sigils_resolve_at_render_time_with_one_context_per_frame(monkeypatch):
     calls = 0
 
@@ -140,6 +158,62 @@ def test_sigils_resolve_at_render_time_with_one_context_per_frame(monkeypatch):
     assert result["rendered"] == 2
     assert lcd.frames == [("1", "1"), ("2", "2")]
     assert calls == 2
+
+
+def test_running_rotation_picks_up_new_project_without_restart(monkeypatch):
+    calls = 0
+
+    def fake_context():
+        nonlocal calls
+        calls += 1
+        return {} if calls == 1 else {"network": {}}
+
+    sleeps = 0
+
+    def fake_sleep(_seconds):
+        nonlocal sleeps
+        sleeps += 1
+        if sleeps == 2:
+            raise StopIteration
+
+    monkeypatch.setattr(standby, "gway_context", fake_context)
+    monkeypatch.setattr(standby.time, "sleep", fake_sleep)
+    lcd = FakeLCD()
+    screens = [standby.Screen(name="net", hi="Network", requires=("network",))]
+
+    with pytest.raises(StopIteration):
+        standby.run(lcd, screens)
+
+    assert lcd.frames == [("Network", "")]
+    assert calls >= 2
+
+
+def test_running_rotation_drops_removed_project_without_restart(monkeypatch):
+    calls = 0
+
+    def fake_context():
+        nonlocal calls
+        calls += 1
+        return {"network": {}} if calls == 1 else {}
+
+    sleeps = 0
+
+    def fake_sleep(_seconds):
+        nonlocal sleeps
+        sleeps += 1
+        if sleeps == 2:
+            raise StopIteration
+
+    monkeypatch.setattr(standby, "gway_context", fake_context)
+    monkeypatch.setattr(standby.time, "sleep", fake_sleep)
+    lcd = FakeLCD()
+    screens = [standby.Screen(name="net", hi="Network", requires=("network",))]
+
+    with pytest.raises(StopIteration):
+        standby.run(lcd, screens)
+
+    assert lcd.frames == [("Network", "")]
+    assert calls >= 2
 
 
 def test_low_legacy_name_maps_to_dynamic_uptime_screen():
