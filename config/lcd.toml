@@ -8,11 +8,22 @@ hold = 10
 # rotation = ["identity", "network", "errors", "stats", "site"]
 
 # Bundled screens are overridden field-by-field by name.
+# A screen may declare zero or more GWAY project prerequisites. Eligibility is
+# checked immediately before each frame, so installing or removing a project is
+# reflected by the running LCD service without a restart.
 # [standby.screens.network]
+# requires = ["network"]
 # hold = 15
-# lo = "ETH [network.eth0.ip|:-]"
+# lo = "ETH [network.ip:eth0|:-]"
 
-# User-defined screens join the same namespace.
+# Multiple prerequisites are ANDed: all named projects must currently exist.
+# [standby.screens.node]
+# requires = ["device", "arthexis"]
+# hi = "Node"
+# lo = "Ready"
+
+# User-defined screens join the same namespace. Omitting `requires` means the
+# screen is always eligible.
 # [standby.screens.site]
 # hi = "Garage"
 # lo = "[SITE_MESSAGE|:Ready]"
