@@ -1,14 +1,26 @@
 [standby]
-interval = 5
-order = ["status", "stats", "clock"]
+hold = 10
 
 [standby.screens.status]
-hi = "[hostname|Gway]"
+hi = "[hostname]"
 lo = "Ready"
+hold = 10
+priority = 100
 
-# Additional named standby frames can be added and inserted into `order`.
-# TOML strings use the same lazy Sigil syntax as Gway CLI values.
+[standby.screens.stats]
+hold = 10
+priority = 300
+
+[standby.screens.clock]
+hold = 10
+priority = 400
+
+# Add more named screens here. With no explicit --rotation, lower priority
+# numbers are displayed first. Use --rotation "*" to include every screen,
+# or --rotation "status,network,clock" for an exact manual order.
 #
 # [standby.screens.network]
-# hi = "ETH [eth0_ip|offline]"
-# lo = "CSMS [csms_status|idle]"
+# hi = "ETH [eth0_ip]"
+# lo = "CSMS [csms_status]"
+# hold = 15
+# priority = 200
