@@ -8,11 +8,18 @@ import time
 import tomllib
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from importlib.resources import files
 from pathlib import Path
 
 from sigils import Sigil
 
+try:
+    from gway import gway_context
+except ImportError:  # GWAY releases before gway_context remain usable.
+    gway_context = None
+
 DEFAULT_HOLD = 10.0
+BUNDLED_CONFIG = "standby.toml"
 
 
 @dataclass(frozen=True)
@@ -48,13 +55,18 @@ def _local_now() -> datetime:
 
 def _runtime_context() -> dict[str, object]:
     hostname = socket.gethostname()
-    return {
+    now = _local_now()
+    context: dict[str, object] = {
         **os.environ,
         "hostname": hostname,
         "host": hostname,
         "uptime": _uptime(),
-        "now": _local_now().isoformat(timespec="seconds"),
+        "now": now.isoformat(timespec="seconds"),
+        "clock": now.strftime("%H:%M"),
     }
+    if gway_context is not None:
+        context.update(gway_context())
+    return context
 
 
 def resolve_text(value: object, context: dict[str, object] | None = None) -> str:
@@ -64,7 +76,7 @@ def resolve_text(value: object, context: dict[str, object] | None = None) -> str
 
 
 def builtin_screen(name: str) -> Screen:
-    """Return one built-in screen."""
+    """Return one compatibility built-in screen."""
     now = _local_now()
     if name in {"low", "uptime"}:
         return Screen(
@@ -94,22 +106,58 @@ def builtin_screen(name: str) -> Screen:
     if name == "status":
         return Screen(
             name="status",
-            hi=resolve_text("[hostname]"),
+            hi="[hostname]",
             lo="Ready",
             priority=100,
         )
     raise KeyError(name)
 
 
+def _bundled_config() -> dict[str, object]:
+    resource = files("gway_lcd").joinpath(BUNDLED_CONFIG)
+    data = tomllib.loads(resource.read_text(encoding="utf-8"))
+    standby = data.get("standby", {})
+    if not isinstance(standby, dict):
+        raise TypeError("bundled [standby] must be a TOML table")
+    return standby
+
+
+def _merge_config(
+    base: dict[str, object], override: dict[str, object]
+) -> dict[str, object]:
+    merged = dict(base)
+    base_screens = base.get("screens", {})
+    override_screens = override.get("screens", {})
+    if isinstance(base_screens, dict):
+        screens = {
+            str(name): dict(entry) if isinstance(entry, dict) else entry
+            for name, entry in base_screens.items()
+        }
+    else:
+        screens = {}
+    if isinstance(override_screens, dict):
+        for name, entry in override_screens.items():
+            key = str(name)
+            if isinstance(entry, dict) and isinstance(screens.get(key), dict):
+                screens[key] = {**screens[key], **entry}
+            else:
+                screens[key] = entry
+    merged.update({key: value for key, value in override.items() if key != "screens"})
+    merged["screens"] = screens
+    return merged
+
+
 def load_config(path: str | Path | None) -> dict[str, object]:
+    """Load bundled standby defaults and merge optional user configuration."""
+    bundled = _bundled_config()
     if path is None:
-        return {}
+        return bundled
     with Path(path).expanduser().open("rb") as handle:
         data = tomllib.load(handle)
     standby = data.get("standby", {})
     if not isinstance(standby, dict):
         raise TypeError("[standby] must be a TOML table")
-    return standby
+    return _merge_config(bundled, standby)
 
 
 def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
@@ -122,18 +170,17 @@ def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
             priority=int(entry.get("priority", base.priority)),
         )
 
-    context = _runtime_context()
     return Screen(
         name=name,
-        hi=resolve_text(entry.get("hi", entry.get("high", "")), context),
-        lo=resolve_text(entry.get("lo", entry.get("low", "")), context),
+        hi=str(entry.get("hi", entry.get("high", ""))),
+        lo=str(entry.get("lo", entry.get("low", ""))),
         hold=float(entry.get("hold", DEFAULT_HOLD)),
         priority=int(entry.get("priority", 100)),
     )
 
 
 def _screen_map(config: dict[str, object]) -> dict[str, Screen]:
-    result = {name: builtin_screen(name) for name in ("status", "stats", "clock")}
+    result: dict[str, Screen] = {}
     configured = config.get("screens", {})
     if isinstance(configured, dict):
         for name, entry in configured.items():
@@ -142,12 +189,17 @@ def _screen_map(config: dict[str, object]) -> dict[str, Screen]:
     return result
 
 
-def _rotation_names(rotation: str | None, screens: dict[str, Screen]) -> list[str]:
+def _rotation_names(
+    rotation: str | list[str] | tuple[str, ...] | None,
+    screens: dict[str, Screen],
+) -> list[str]:
     if rotation is None:
         return [
             screen.name
             for screen in sorted(screens.values(), key=lambda item: item.priority)
         ]
+    if isinstance(rotation, (list, tuple)):
+        return [str(item) for item in rotation]
     if rotation.strip() == "*":
         return list(screens)
     return [item for item in rotation.replace(",", " ").split() if item]
@@ -164,9 +216,10 @@ def screens_from_config(
     hold: float = DEFAULT_HOLD,
     priority: int = 100,
 ) -> tuple[list[Screen], float]:
-    """Build named screens and select a rotation or one standalone screen."""
-    screens = _screen_map(config)
-    default_hold = float(config.get("hold", config.get("interval", DEFAULT_HOLD)))
+    """Build bundled/user screens and select a rotation or standalone screen."""
+    effective = _merge_config(_bundled_config(), config)
+    screens = _screen_map(effective)
+    default_hold = float(effective.get("hold", effective.get("interval", DEFAULT_HOLD)))
 
     if screen is not None and (hi or lo):
         screens[screen] = Screen(
@@ -182,7 +235,18 @@ def screens_from_config(
             raise ValueError(f"unknown standby screen: {screen}")
         return [screens[screen]], default_hold
 
-    selected_rotation = rotation if rotation is not None else order
+    selected_rotation: str | list[str] | tuple[str, ...] | None
+    if rotation is not None:
+        selected_rotation = rotation
+    elif order is not None:
+        selected_rotation = order
+    else:
+        bundled_rotation = effective.get("rotation")
+        selected_rotation = (
+            bundled_rotation
+            if isinstance(bundled_rotation, (str, list, tuple))
+            else None
+        )
     names = _rotation_names(selected_rotation, screens)
     selected: list[Screen] = []
     for name in names:
@@ -199,7 +263,7 @@ def run(
     default_hold: float = DEFAULT_HOLD,
     once: bool = False,
 ) -> dict[str, object]:
-    """Render named screens, respecting each screen's hold time."""
+    """Render named screens with one fresh GWAY/Sigil context per frame."""
     if not screens:
         raise ValueError("standby requires at least one screen")
 
@@ -217,7 +281,11 @@ def run(
                     hold=configured.hold,
                     priority=configured.priority,
                 )
-            lcd.write(frame.hi, frame.lo)
+            context = _runtime_context()
+            lcd.write(
+                resolve_text(frame.hi, context),
+                resolve_text(frame.lo, context),
+            )
             rendered += 1
             if not once:
                 time.sleep(frame.hold if frame.hold > 0 else default_hold)
