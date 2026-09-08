@@ -64,7 +64,12 @@ def test_star_rotation_includes_all_screens():
 
     screens, _hold = standby.screens_from_config(config, rotation="*")
 
-    assert {screen.name for screen in screens} == {"status", "stats", "clock", "network"}
+    assert {screen.name for screen in screens} == {
+        "status",
+        "stats",
+        "clock",
+        "network",
+    }
 
 
 def test_priority_orders_configured_screens_when_rotation_is_implicit():
