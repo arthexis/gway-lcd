@@ -25,20 +25,20 @@ def test_bundled_screen_templates_capture_canonical_layout():
     config = standby.load_config(None)
     screens = config["screens"]
 
-    assert screens["identity"]["hi"] == "[hostname]"
-    assert screens["identity"]["lo"] == "[arthexis.node_type] [uptime]"
-    assert screens["network"]["hi"] == "[network.wlan0.ip|:-]"
-    assert screens["network"]["lo"] == "[network.eth0.ip|:-]"
+    assert screens["identity"]["hi"] == "[device.hostname]"
+    assert screens["identity"]["lo"] == "[arthexis.node-role|:-] [device.uptime]"
+    assert screens["network"]["hi"] == "[network.ip:wlan0|:-]"
+    assert screens["network"]["lo"] == "[network.ip:eth0|:-]"
     assert screens["errors"]["hi"] == (
-        "E[health.errors] W[health.warnings] "
-        "U[health.undervoltage] F[health.failed_units]"
+        "E[device.errors] W[device.warnings] "
+        "U[device.undervoltage:count] F[device.failed-units]"
     )
-    assert screens["errors"]["lo"] == "[health.error_source|:-]"
+    assert screens["errors"]["lo"] == "[device.error-source|:-]"
     assert screens["stats"]["hi"] == (
-        "M[system.memory_percent]% D[system.disk_free_percent]% "
-        "C[system.cpu_percent]% [clock]"
+        "M[device.memory:percent]% D[device.disk:free-percent]% "
+        "C[device.cpu:percent]% [clock]"
     )
-    assert screens["stats"]["lo"] == "[arthexis.version] [arthexis.status||:FAIL]"
+    assert screens["stats"]["lo"] == "[arthexis.version|:-] [arthexis.status||:FAIL]"
 
 
 def test_named_screen_can_be_defined_from_cli_values():
@@ -93,7 +93,7 @@ def test_user_screen_overrides_bundled_fields_by_name():
 
     screens, _hold = standby.screens_from_config(config, screen="network")
 
-    assert screens[0].hi == "[network.wlan0.ip|:-]"
+    assert screens[0].hi == "[network.ip:wlan0|:-]"
     assert screens[0].lo == "ETH custom"
     assert screens[0].hold == 20
 
