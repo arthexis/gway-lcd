@@ -3,21 +3,23 @@ rotation = ["identity", "network", "errors", "stats"]
 hold = 10
 
 [standby.screens.identity]
-hi = "[hostname]"
-lo = "[arthexis.node_type] [uptime]"
+hi = "[device.hostname]"
+lo = "[arthexis.node-role|:-] [device.uptime]"
 priority = 100
 
 [standby.screens.network]
-hi = "[network.wlan0.ip|:-]"
-lo = "[network.eth0.ip|:-]"
+# Temporary zero-argument aliases until GWAY-backed Sigils pass callable arguments.
+# Canonical network API: ip(interface), e.g. network.ip:wlan0.
+hi = "[network.wlan0-ip|:-]"
+lo = "[network.eth0-ip|:-]"
 priority = 200
 
 [standby.screens.errors]
-hi = "E[health.errors] W[health.warnings] U[health.undervoltage] F[health.failed_units]"
-lo = "[health.error_source|:-]"
+hi = "E[device.errors] W[device.warnings] U[device.undervoltage] F[device.failed-units]"
+lo = "[device.error-source|:-]"
 priority = 300
 
 [standby.screens.stats]
-hi = "M[system.memory_percent]% D[system.disk_free_percent]% C[system.cpu_percent]% [clock]"
-lo = "[arthexis.version] [arthexis.status||:FAIL]"
+hi = "M[device.memory-percent]% D[device.disk-free-percent]% C[device.cpu-percent]% [clock]"
+lo = "[arthexis.version|:-] [arthexis.status||:FAIL]"
 priority = 400
