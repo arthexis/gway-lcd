@@ -32,6 +32,7 @@ class Screen:
     kind: str = "static"
     hold: float = DEFAULT_HOLD
     priority: int = 100
+    requires: tuple[str, ...] = ()
 
 
 def _uptime() -> str:
@@ -53,7 +54,13 @@ def _local_now() -> datetime:
     return datetime.now(UTC).astimezone()
 
 
-def _runtime_context() -> dict[str, object]:
+def _gway_projects() -> dict[str, object]:
+    if gway_context is None:
+        return {}
+    return dict(gway_context())
+
+
+def _runtime_context(projects: dict[str, object] | None = None) -> dict[str, object]:
     hostname = socket.gethostname()
     now = _local_now()
     context: dict[str, object] = {
@@ -64,8 +71,7 @@ def _runtime_context() -> dict[str, object]:
         "now": now.isoformat(timespec="seconds"),
         "clock": now.strftime("%H:%M"),
     }
-    if gway_context is not None:
-        context.update(gway_context())
+    context.update(_gway_projects() if projects is None else projects)
     return context
 
 
@@ -160,7 +166,18 @@ def load_config(path: str | Path | None) -> dict[str, object]:
     return _merge_config(bundled, standby)
 
 
+def _requires(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return tuple(item for item in value.replace(",", " ").split() if item)
+    if isinstance(value, (list, tuple)):
+        return tuple(str(item) for item in value if str(item))
+    raise TypeError("screen requires must be a project name or list of project names")
+
+
 def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
+    requires = _requires(entry.get("requires"))
     has_text = any(key in entry for key in ("hi", "high", "lo", "low"))
     if not has_text and name in {"status", "stats", "clock"}:
         base = builtin_screen(name)
@@ -168,6 +185,7 @@ def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
             base,
             hold=float(entry.get("hold", base.hold)),
             priority=int(entry.get("priority", base.priority)),
+            requires=requires,
         )
 
     return Screen(
@@ -176,6 +194,7 @@ def _configured_screen(name: str, entry: dict[str, object]) -> Screen:
         lo=str(entry.get("lo", entry.get("low", ""))),
         hold=float(entry.get("hold", DEFAULT_HOLD)),
         priority=int(entry.get("priority", 100)),
+        requires=requires,
     )
 
 
@@ -256,6 +275,10 @@ def screens_from_config(
     return selected, default_hold
 
 
+def _requirements_met(screen: Screen, projects: dict[str, object]) -> bool:
+    return all(project in projects for project in screen.requires)
+
+
 def run(
     lcd,
     screens: list[Screen],
@@ -263,13 +286,17 @@ def run(
     default_hold: float = DEFAULT_HOLD,
     once: bool = False,
 ) -> dict[str, object]:
-    """Render named screens with one fresh GWAY/Sigil context per frame."""
+    """Render eligible screens, refreshing GWAY project availability per frame."""
     if not screens:
         raise ValueError("standby requires at least one screen")
 
     rendered = 0
     while True:
+        rendered_this_pass = 0
         for configured in screens:
+            projects = _gway_projects()
+            if not _requirements_met(configured, projects):
+                continue
             frame = (
                 builtin_screen(configured.name)
                 if configured.kind == "dynamic"
@@ -280,17 +307,21 @@ def run(
                     frame,
                     hold=configured.hold,
                     priority=configured.priority,
+                    requires=configured.requires,
                 )
-            context = _runtime_context()
+            context = _runtime_context(projects)
             lcd.write(
                 resolve_text(frame.hi, context),
                 resolve_text(frame.lo, context),
             )
             rendered += 1
+            rendered_this_pass += 1
             if not once:
                 time.sleep(frame.hold if frame.hold > 0 else default_hold)
         if once:
             break
+        if rendered_this_pass == 0:
+            time.sleep(default_hold if default_hold > 0 else DEFAULT_HOLD)
     return {
         "screens": [screen.name for screen in screens],
         "rendered": rendered,
