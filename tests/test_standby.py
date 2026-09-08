@@ -1,11 +1,44 @@
 from gway_lcd import standby
 
 
-def test_default_rotation_uses_priority_order():
+class FakeLCD:
+    def __init__(self):
+        self.frames = []
+
+    def write(self, hi, lo):
+        self.frames.append((hi, lo))
+
+
+def test_default_rotation_uses_bundled_canonical_screens():
     screens, hold = standby.screens_from_config({})
 
-    assert [screen.name for screen in screens] == ["status", "stats", "clock"]
+    assert [screen.name for screen in screens] == [
+        "identity",
+        "network",
+        "errors",
+        "stats",
+    ]
     assert hold == 10.0
+
+
+def test_bundled_screen_templates_capture_canonical_layout():
+    config = standby.load_config(None)
+    screens = config["screens"]
+
+    assert screens["identity"]["hi"] == "[hostname]"
+    assert screens["identity"]["lo"] == "[arthexis.node_type] [uptime]"
+    assert screens["network"]["hi"] == "[network.wlan0.ip|:-]"
+    assert screens["network"]["lo"] == "[network.eth0.ip|:-]"
+    assert screens["errors"]["hi"] == (
+        "E[health.errors] W[health.warnings] "
+        "U[health.undervoltage] F[health.failed_units]"
+    )
+    assert screens["errors"]["lo"] == "[health.error_source|:-]"
+    assert screens["stats"]["hi"] == (
+        "M[system.memory_percent]% D[system.disk_free_percent]% "
+        "C[system.cpu_percent]% [clock]"
+    )
+    assert screens["stats"]["lo"] == "[arthexis.version] [arthexis.status||:FAIL]"
 
 
 def test_named_screen_can_be_defined_from_cli_values():
@@ -26,87 +59,87 @@ def test_named_screen_can_be_defined_from_cli_values():
     assert screens[0].priority == 25
 
 
-def test_standalone_named_screen_loads_from_config():
+def test_user_screen_extends_bundled_screens():
+    config = {
+        "screens": {
+            "site": {
+                "hi": "Site",
+                "lo": "Garage",
+                "priority": 500,
+            }
+        }
+    }
+
+    screens, _hold = standby.screens_from_config(config, rotation="*")
+
+    assert {screen.name for screen in screens} == {
+        "identity",
+        "network",
+        "errors",
+        "stats",
+        "site",
+    }
+
+
+def test_user_screen_overrides_bundled_fields_by_name():
     config = {
         "screens": {
             "network": {
-                "hi": "Online",
-                "lo": "10.42.0.1",
+                "lo": "ETH custom",
                 "hold": 20,
-                "priority": 50,
             }
         }
     }
 
     screens, _hold = standby.screens_from_config(config, screen="network")
 
-    assert [screen.name for screen in screens] == ["network"]
+    assert screens[0].hi == "[network.wlan0.ip|:-]"
+    assert screens[0].lo == "ETH custom"
     assert screens[0].hold == 20
 
 
 def test_manual_rotation_preserves_requested_order():
-    config = {
-        "screens": {
-            "network": {"hi": "Network", "priority": 50},
-        }
-    }
-
     screens, _hold = standby.screens_from_config(
-        config,
-        rotation="clock,network,status",
+        {},
+        rotation="stats,identity,network,errors",
     )
 
-    assert [screen.name for screen in screens] == ["clock", "network", "status"]
-
-
-def test_star_rotation_includes_all_screens():
-    config = {"screens": {"network": {"hi": "Network"}}}
-
-    screens, _hold = standby.screens_from_config(config, rotation="*")
-
-    assert {screen.name for screen in screens} == {
-        "status",
-        "stats",
-        "clock",
-        "network",
-    }
-
-
-def test_priority_orders_configured_screens_when_rotation_is_implicit():
-    config = {
-        "screens": {
-            "network": {"hi": "Network", "priority": 50},
-            "slow": {"hi": "Slow", "priority": 350},
-        }
-    }
-
-    screens, _hold = standby.screens_from_config(config)
-
     assert [screen.name for screen in screens] == [
-        "network",
-        "status",
         "stats",
-        "slow",
-        "clock",
+        "identity",
+        "network",
+        "errors",
     ]
 
 
-def test_toml_screen_resolves_sigils(monkeypatch):
-    monkeypatch.setenv("LCD_SITE", "GWAY-001")
-    config = {
-        "screens": {
-            "site": {
-                "hi": "[LCD_SITE]",
-                "lo": "Ready",
-                "priority": 10,
-            }
-        },
-    }
+def test_user_rotation_can_replace_bundled_rotation():
+    config = {"rotation": ["errors", "identity"]}
 
-    screens, _hold = standby.screens_from_config(config, screen="site")
+    screens, _hold = standby.screens_from_config(config)
 
-    assert screens[0].hi == "GWAY-001"
-    assert screens[0].lo == "Ready"
+    assert [screen.name for screen in screens] == ["errors", "identity"]
+
+
+def test_sigils_resolve_at_render_time_with_one_context_per_frame(monkeypatch):
+    calls = 0
+
+    def fake_context():
+        nonlocal calls
+        calls += 1
+        return {"value": calls}
+
+    monkeypatch.setattr(standby, "gway_context", fake_context)
+    lcd = FakeLCD()
+    screens = [
+        standby.Screen(name="one", hi="[value]", lo="[value]"),
+        standby.Screen(name="two", hi="[value]", lo="[value]"),
+    ]
+
+    result = standby.run(lcd, screens, once=True)
+
+    assert result["rendered"] == 2
+    assert lcd.frames == [("1", "1"), ("2", "2")]
+    assert calls == 2
 
 
 def test_low_legacy_name_maps_to_dynamic_uptime_screen():
