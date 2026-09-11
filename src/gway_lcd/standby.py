@@ -5,11 +5,15 @@ from __future__ import annotations
 import os
 import socket
 import time
-import tomllib
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from importlib.resources import files
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 from sigils import Sigil
 
@@ -51,7 +55,7 @@ def _uptime() -> str:
 
 
 def _local_now() -> datetime:
-    return datetime.now(UTC).astimezone()
+    return datetime.now(timezone.utc).astimezone()
 
 
 def _gway_projects() -> dict[str, object]:
