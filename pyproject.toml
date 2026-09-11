@@ -7,7 +7,7 @@ name = "gway-lcd"
 version = "0.1.0"
 description = "Gway-native control for HD44780-compatible character LCD displays"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [
   { name = "Rafael J. Guillén-Osorio" },
@@ -33,5 +33,5 @@ gway_lcd = ["standby.toml"]
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 88
