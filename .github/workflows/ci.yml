@@ -12,4 +12,8 @@ jobs:
   python:
     uses: arthexis/ci-base/.github/workflows/consumer-ci.yml@v1
     with:
-      install-command: python -m pip install -e ".[dev]"
+      test-python-versions: '["3.10", "3.13", "3.14"]'
+      install-command: >-
+        python -m pip install
+        "gway-sigils @ git+https://github.com/arthexis/sigils.git@4b4a22482627ac8039cc1c7e7fc94a793f55cfb8"
+        && python -m pip install -e ".[dev]"
